@@ -1,3 +1,4 @@
 #!/bin/bash
 
+echo "Hello there Vikram"
 echo "This is a test message" >>/tmp/test_git
