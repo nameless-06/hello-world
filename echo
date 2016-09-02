@@ -1,4 +1,4 @@
 #!/bin/bash
 
 echo "Hello there Vikram"
-echo "This is a test message generated on date +%F_%R" >>/tmp/test_git
+echo "This is a test message generated on date `+%F_%R` by hello world prj" >>/tmp/test_git
