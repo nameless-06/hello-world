@@ -1,4 +1,306 @@
-#!/bin/bash
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Growth Calculator (with Drawdown)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the calculator */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px; /* This padding should create space from edges */
+            box-sizing: border-box;
+        }
+        .calculator-container {
+            /* Using explicit CSS for width and centering to ensure responsiveness */
+            background-color: #fff;
+            padding: 2rem; /* Equivalent to Tailwind p-8 */
+            border-radius: 0.75rem; /* Equivalent to Tailwind rounded-xl */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); /* Equivalent to Tailwind shadow-2xl */
+            max-width: 100%; /* Ensure it doesn't exceed parent width */
+            width: 100%; /* Take full available width */
+            margin: 0 auto; /* Center horizontally */
+            box-sizing: border-box; /* Include padding in width calculation */
+        }
+        /* Tailwind classes for other elements */
+        .input-group {
+            @apply mb-4;
+        }
+        .input-group label {
+            @apply block text-gray-700 text-sm font-bold mb-2;
+        }
+        .input-group input {
+            @apply shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+        }
+        .calculate-button {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline transition-all duration-200 w-full;
+        }
+        .results-section {
+            @apply mt-8 p-6 bg-gray-50 rounded-lg shadow-inner;
+        }
+        .results-table {
+            @apply w-full border-collapse;
+        }
+        .results-table th, .results-table td {
+            @apply py-2 px-4 border-b border-gray-200 text-left;
+            white-space: nowrap; /* Prevent text wrapping in table headers/cells */
+        }
+        .results-table th {
+            @apply bg-gray-200 text-gray-700 font-semibold text-sm;
+        }
+        .results-table tr:nth-child(even) {
+            @apply bg-gray-100;
+        }
+        .error-message {
+            @apply text-red-600 text-sm mt-2;
+        }
+        .depletion-message {
+            @apply text-red-700 font-bold text-center mt-4 text-lg;
+        }
+        /* Responsive grid for inputs */
+        .grid-cols-1 {
+            grid-template-columns: 1fr;
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .md\:grid-cols-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .md\:col-span-2 {
+                grid-column: span 2 / span 2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">Investment Growth Calculator (with Drawdown)</h1>
 
-echo "Hello there Vikram"
-echo "This is a test message generated on date `+%F_%R` by hello world prj" >>/tmp/test_git
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="input-group">
+                <label for="monthlyIncome">Monthly Income (INR)</label>
+                <input type="number" id="monthlyIncome" value="100000" min="0" step="1000" placeholder="e.g., 100000">
+                <p id="monthlyIncomeError" class="error-message hidden">Please enter a valid monthly income (non-negative).</p>
+            </div>
+
+            <div class="input-group">
+                <label for="monthlyExpenses">Initial Monthly Expenses (INR)</label>
+                <input type="number" id="monthlyExpenses" value="25000" min="0" step="500" placeholder="e.g., 25000">
+                <p id="monthlyExpensesError" class="error-message hidden">Please enter valid initial monthly expenses (non-negative).</p>
+            </div>
+
+            <div class="input-group">
+                <label for="cagr">Savings CAGR (%)</label>
+                <input type="number" id="cagr" value="10" min="0" step="0.1" placeholder="e.g., 10">
+                <p id="cagrError" class="error-message hidden">Please enter a valid CAGR (non-negative).</p>
+            </div>
+
+            <div class="input-group">
+                <label for="inflationRate">Inflation Rate (%)</label>
+                <input type="number" id="inflationRate" value="7" min="0" step="0.1" placeholder="e.g., 7">
+                <p id="inflationRateError" class="error-message hidden">Please enter a valid inflation rate (non-negative).</p>
+            </div>
+
+            <div class="input-group md:col-span-2">
+                <label for="investmentPeriod">Investment Period (Years)</label>
+                <input type="number" id="investmentPeriod" value="20" min="1" max="50" step="1" placeholder="e.g., 10">
+                <p id="investmentPeriodError" class="error-message hidden">Please enter a valid investment period (1-50 years).</p>
+            </div>
+        </div>
+
+        <button id="calculateBtn" class="calculate-button mt-4">Calculate Growth</button>
+
+        <div id="results" class="results-section hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Projection Results</h2>
+            <div class="overflow-x-auto">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Start Balance</th>
+                            <th>Annual Income</th>
+                            <th>Annual Expenses</th>
+                            <th>Net Cash Flow</th>
+                            <th>Growth/Withdrawal</th>
+                            <th>End Balance</th>
+                            <th>Adj. Monthly Exp. (Next Yr)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <p id="depletionStatus" class="depletion-message hidden"></p>
+            <p class="text-gray-600 text-sm mt-4 text-center">All values are in INR and rounded for readability.</p>
+        </div>
+    </div>
+
+    <script>
+        // Get references to input fields and display elements
+        const monthlyIncomeInput = document.getElementById('monthlyIncome');
+        const monthlyExpensesInput = document.getElementById('monthlyExpenses');
+        const cagrInput = document.getElementById('cagr');
+        const inflationRateInput = document.getElementById('inflationRate');
+        const investmentPeriodInput = document.getElementById('investmentPeriod');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const resultsSection = document.getElementById('results');
+        const resultsTableBody = document.getElementById('resultsTableBody');
+        const depletionStatus = document.getElementById('depletionStatus');
+
+        // Error message elements
+        const monthlyIncomeError = document.getElementById('monthlyIncomeError');
+        const monthlyExpensesError = document.getElementById('monthlyExpensesError');
+        const cagrError = document.getElementById('cagrError');
+        const inflationRateError = document.getElementById('inflationRateError');
+        const investmentPeriodError = document.getElementById('investmentPeriodError');
+
+        /**
+         * Validates a numeric input field.
+         * @param {HTMLInputElement} inputElement - The input element to validate.
+         * @param {HTMLElement} errorElement - The error message element.
+         * @param {string} errorMessage - The message to display on error.
+         * @param {number} [minValue=0] - The minimum allowed value.
+         * @param {number} [maxValue=Infinity] - The maximum allowed value.
+         * @returns {boolean} True if valid, false otherwise.
+         */
+        function validateInput(inputElement, errorElement, errorMessage, minValue = 0, maxValue = Infinity) {
+            const value = parseFloat(inputElement.value);
+            if (isNaN(value) || value < minValue || value > maxValue) {
+                errorElement.textContent = errorMessage;
+                errorElement.classList.remove('hidden');
+                inputElement.classList.add('border-red-500');
+                return false;
+            } else {
+                errorElement.classList.add('hidden');
+                inputElement.classList.remove('border-red-500');
+                return true;
+            }
+        }
+
+        /**
+         * Formats a number as a currency string.
+         * @param {number} amount - The number to format.
+         * @returns {string} The formatted currency string.
+         */
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 0, // No decimal places for large numbers
+                maximumFractionDigits: 0,
+            }).format(amount);
+        }
+
+        /**
+         * Calculates and displays the investment growth, including drawdown from savings.
+         */
+        function calculateGrowth() {
+            // Validate all inputs
+            const isMonthlyIncomeValid = validateInput(monthlyIncomeInput, monthlyIncomeError, 'Please enter a valid monthly income (non-negative).', 0);
+            const isMonthlyExpensesValid = validateInput(monthlyExpensesInput, monthlyExpensesError, 'Please enter valid initial monthly expenses (non-negative).', 0);
+            const isCagrValid = validateInput(cagrInput, cagrError, 'Please enter a valid CAGR (non-negative).', 0);
+            const isInflationRateValid = validateInput(inflationRateInput, inflationRateError, 'Please enter a valid inflation rate (non-negative).', 0);
+            const isInvestmentPeriodValid = validateInput(investmentPeriodInput, investmentPeriodError, 'Please enter a valid investment period (1-50 years).', 1, 50);
+
+            if (!isMonthlyIncomeValid || !isMonthlyExpensesValid || !isCagrValid || !isInflationRateValid || !isInvestmentPeriodValid) {
+                resultsSection.classList.add('hidden'); // Hide results if validation fails
+                return;
+            }
+
+            // Get parsed values
+            const monthlyIncome = parseFloat(monthlyIncomeInput.value);
+            let currentMonthlyExpenses = parseFloat(monthlyExpensesInput.value); // This will be inflated each year
+            const cagr = parseFloat(cagrInput.value) / 100; // Convert to decimal
+            const inflationRate = parseFloat(inflationRateInput.value) / 100; // Convert to decimal
+            const investmentPeriod = parseInt(investmentPeriodInput.value);
+
+            // Clear previous results
+            resultsTableBody.innerHTML = '';
+            depletionStatus.classList.add('hidden');
+
+            let currentBalance = 0; // Starting investment balance
+
+            for (let year = 1; year <= investmentPeriod; year++) {
+                const startingBalanceThisYear = currentBalance;
+                const annualIncomeThisYear = monthlyIncome * 12;
+                const annualExpensesThisYear = currentMonthlyExpenses * 12; // Use current year's expenses
+
+                const netAnnualCashFlow = annualIncomeThisYear - annualExpensesThisYear;
+
+                let balanceBeforeCagrApplication = startingBalanceThisYear + netAnnualCashFlow;
+                let interestGrowthOrWithdrawal = 0;
+                let endingBalanceThisYear = 0;
+                let fundsDepleted = false;
+
+                if (balanceBeforeCagrApplication < 0 && netAnnualCashFlow < 0) {
+                    // If even before applying CAGR, the balance combined with negative cash flow
+                    // is negative, it means we've run out of money.
+                    // This scenario correctly handles immediate depletion if initial expenses > income and no starting balance.
+                    fundsDepleted = true;
+                    endingBalanceThisYear = 0; // Or keep it negative if you want to show debt
+                    interestGrowthOrWithdrawal = 0; // No growth if depleted
+                    depletionStatus.textContent = `Funds depleted in Year ${year}!`;
+                    depletionStatus.classList.remove('hidden');
+                } else if (balanceBeforeCagrApplication < 0 && netAnnualCashFlow >=0 ) {
+                    // This case means net annual cash flow is positive, but starting balance was negative (unlikely with this calculator)
+                    // or it just went slightly negative but still has growth potential if CAGR is high enough
+                    // We will allow it to go slightly negative if CAGR can bring it back.
+                    // But if CAGR is 0%, it would mean depleted.
+                    interestGrowthOrWithdrawal = balanceBeforeCagrApplication * cagr;
+                    endingBalanceThisYear = balanceBeforeCagrApplication + interestGrowthOrWithdrawal;
+                     if (endingBalanceThisYear < 0 && cagr >=0) { // If it's still negative after growth (or 0 CAGR)
+                        fundsDepleted = true;
+                        endingBalanceThisYear = 0;
+                        interestGrowthOrWithdrawal = 0; // No growth if effectively depleted
+                        depletionStatus.textContent = `Funds depleted in Year ${year}!`;
+                        depletionStatus.classList.remove('hidden');
+                    }
+                }
+                else {
+                    // Normal scenario: balance is positive or zero after cash flow, apply CAGR
+                    interestGrowthOrWithdrawal = balanceBeforeCagrApplication * cagr;
+                    endingBalanceThisYear = balanceBeforeCagrApplication + interestGrowthOrWithdrawal;
+                }
+
+                // Add row to table (even if funds are depleted, to show the year it happened)
+                const row = resultsTableBody.insertRow();
+                row.innerHTML = `
+                    <td>${year}</td>
+                    <td>${formatCurrency(startingBalanceThisYear)}</td>
+                    <td>${formatCurrency(annualIncomeThisYear)}</td>
+                    <td>${formatCurrency(annualExpensesThisYear)}</td>
+                    <td class="${netAnnualCashFlow < 0 ? 'text-red-600' : 'text-green-600'}">${formatCurrency(netAnnualCashFlow)}</td>
+                    <td class="${interestGrowthOrWithdrawal < 0 ? 'text-red-600' : 'text-green-600'}">${formatCurrency(interestGrowthOrWithdrawal)}</td>
+                    <td class="${endingBalanceThisYear < 0 ? 'text-red-600 font-bold' : ''}">${formatCurrency(endingBalanceThisYear)}</td>
+                    <td>${formatCurrency(currentMonthlyExpenses * (1 + inflationRate))}</td>
+                `;
+
+                if (fundsDepleted) {
+                    // Highlight the row where depletion happened
+                    row.classList.add('bg-red-100', 'font-bold');
+                    break; // Stop calculation after depletion
+                }
+
+                currentBalance = endingBalanceThisYear; // Update balance for next year
+                currentMonthlyExpenses *= (1 + inflationRate); // Inflate expenses for the next year
+            }
+
+            resultsSection.classList.remove('hidden'); // Show the results section
+        }
+
+        // Add event listener to the calculate button
+        calculateBtn.addEventListener('click', calculateGrowth);
+
+        // Initial calculation on page load (optional, but good for default values)
+        window.onload = calculateGrowth;
+    </script>
+</body>
+</html>
+
